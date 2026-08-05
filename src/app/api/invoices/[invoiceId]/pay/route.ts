@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { getInvoiceForViewer } from "@/lib/invoice-access";
 import { createPaymentOrder } from "@/lib/payment-gateway";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(
   request: Request,
@@ -20,7 +21,24 @@ export async function POST(
       return NextResponse.json({ error: "Invoice is already fully paid." }, { status: 400 });
     }
 
-    // Create payment order
+    const body = await request.json().catch(() => ({}));
+    const method = body.method || "ONLINE_GATEWAY";
+
+    if (method === "UPI" || method === "GPAY") {
+      // Direct UPI flow (student paid via QR/PhonePe)
+      const payment = await prisma.payment.create({
+        data: {
+          invoiceId: invoice.id,
+          amount: outstanding,
+          method: "UPI",
+          status: "PROCESSING", // Accountant needs to manually confirm
+        }
+      });
+      
+      return NextResponse.json({ success: true, paymentId: payment.id });
+    }
+
+    // Default: Create payment order for gateway
     const orderData = await createPaymentOrder(invoice.id, invoice.student.schoolId, outstanding);
 
     return NextResponse.json(orderData);

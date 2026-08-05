@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Search, AlertCircle } from "lucide-react";
 import type { SearchResult } from "@/lib/search";
 
 export function GlobalSearch() {
@@ -10,6 +10,7 @@ export function GlobalSearch() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,18 +27,25 @@ export function GlobalSearch() {
     if (query.trim().length < 2) {
       setResults([]);
       setIsOpen(false);
+      setError(null);
       return;
     }
 
     const delayDebounceFn = setTimeout(async () => {
       setLoading(true);
+      setError(null);
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+        if (!res.ok) {
+          throw new Error(`Search failed (${res.status})`);
+        }
         const data = await res.json();
         setResults(data.results || []);
         setIsOpen(true);
-      } catch (err) {
-        console.error(err);
+      } catch (err: any) {
+        setError(err.message || "Search failed");
+        setResults([]);
+        setIsOpen(true);
       } finally {
         setLoading(false);
       }
@@ -58,7 +66,7 @@ export function GlobalSearch() {
           placeholder="Search students, invoices, receipts..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => { if (results.length > 0) setIsOpen(true); }}
+          onFocus={() => { if (results.length > 0 || error) setIsOpen(true); }}
         />
         {loading && (
           <div className="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -67,7 +75,14 @@ export function GlobalSearch() {
         )}
       </div>
 
-      {isOpen && results.length > 0 && (
+      {isOpen && error && (
+        <div className="absolute top-full z-50 mt-1 w-full rounded-lg border border-rose-200 bg-rose-50 p-4 shadow-lg text-sm text-rose-700 flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {isOpen && !error && results.length > 0 && (
         <div className="absolute top-full z-50 mt-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
           <ul className="max-h-96 overflow-y-auto">
             {results.map((result) => (
@@ -90,7 +105,7 @@ export function GlobalSearch() {
           </ul>
         </div>
       )}
-      {isOpen && query.length >= 2 && results.length === 0 && !loading && (
+      {isOpen && !error && query.length >= 2 && results.length === 0 && !loading && (
         <div className="absolute top-full z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white p-4 shadow-lg text-sm text-slate-500 text-center">
           No results found for &quot;{query}&quot;
         </div>

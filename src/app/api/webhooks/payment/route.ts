@@ -14,6 +14,7 @@ export async function POST(request: Request) {
     const timestamp = request.headers.get("x-webhook-timestamp");
     const signature = request.headers.get("x-webhook-signature");
     const schoolId = request.headers.get("x-school-id") || new URL(request.url).searchParams.get("schoolId");
+    const incomingGatewayId = request.headers.get("x-gateway-id");
 
     if (!signature || !schoolId || !timestamp) {
       return NextResponse.json({ error: "Missing signature, timestamp, or school ID" }, { status: 400 });
@@ -22,16 +23,25 @@ export async function POST(request: Request) {
     // Timestamp validation (prevent replay attacks) - reject if older than 5 minutes
     const now = Date.now();
     const webhookTime = parseInt(timestamp, 10) * 1000;
-    if (Math.abs(now - webhookTime) > 5 * 60 * 1000) {
-      return NextResponse.json({ error: "Webhook timestamp expired" }, { status: 400 });
+    if (isNaN(webhookTime) || Math.abs(now - webhookTime) > 5 * 60 * 1000) {
+      return NextResponse.json({ error: "Webhook timestamp expired or invalid" }, { status: 400 });
     }
 
-    const gateway = await prisma.paymentGateway.findFirst({
-      where: { schoolId, isActive: true },
-    });
+    // Multi-gateway: find the correct gateway
+    // Priority: explicit gateway ID > active gateway for school
+    let gateway;
+    if (incomingGatewayId) {
+      gateway = await prisma.paymentGateway.findFirst({
+        where: { id: incomingGatewayId, schoolId },
+      });
+    } else {
+      gateway = await prisma.paymentGateway.findFirst({
+        where: { schoolId, isActive: true },
+      });
+    }
 
     if (!gateway || !gateway.webhookSecret) {
-      return NextResponse.json({ error: "Webhook not configured for this school" }, { status: 400 });
+      return NextResponse.json({ error: "Webhook not configured for this school/gateway" }, { status: 400 });
     }
 
     const secret = decryptSecret(gateway.webhookSecret);
@@ -40,16 +50,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
-    const payload = JSON.parse(rawBody);
+    let payload;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    }
     
-    // Simulate a successful payment webhook payload: { event: "payment.captured", payload: { payment: { entity: { id: "...", order_id: "..." } } } }
     if (payload.event === "payment.captured") {
-      const orderId = payload.payload.payment.entity.order_id;
-      const transactionId = payload.payload.payment.entity.id;
+      const orderId = payload.payload?.payment?.entity?.order_id;
+      const transactionId = payload.payload?.payment?.entity?.id;
+
+      if (!orderId || !transactionId) {
+        return NextResponse.json({ error: "Missing order_id or transaction id in payload" }, { status: 400 });
+      }
       
       const payment = await prisma.payment.findUnique({
         where: { idempotencyKey: orderId },
-        include: { invoice: { include: { feeRecord: true, student: { include: { parentLinks: { include: { parent: true } } } } } } }
+        include: {
+          invoice: {
+            include: {
+              feeRecord: {
+                include: { feeStructure: { include: { academicSession: true } } }
+              },
+              student: {
+                include: { parentLinks: { include: { parent: true } } }
+              }
+            }
+          }
+        }
       });
 
       if (!payment) {
@@ -61,9 +90,14 @@ export async function POST(request: Request) {
         return NextResponse.json({ status: "already_processed" });
       }
 
-      await prisma.$transaction(async (tx) => {
+      // Verify payment belongs to the correct school
+      if (payment.invoice.student.schoolId !== schoolId) {
+        return NextResponse.json({ error: "School mismatch" }, { status: 403 });
+      }
+
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // 1. Mark payment as completed
-        const updatedPayment = await tx.payment.update({
+        await tx.payment.update({
           where: { id: payment.id },
           data: { 
             status: PaymentStatus.COMPLETED, 
@@ -79,7 +113,7 @@ export async function POST(request: Request) {
           ? InvoiceStatus.PAID 
           : InvoiceStatus.PARTIAL;
 
-        const updatedInvoice = await tx.invoice.update({
+        await tx.invoice.update({
           where: { id: payment.invoiceId },
           data: {
             paidAmount: newPaidAmount,
@@ -87,19 +121,11 @@ export async function POST(request: Request) {
           },
         });
 
-        // 3. Generate Receipt
-        // We need the session to generate receipt number
-        const session = await tx.academicSession.findFirstOrThrow({
-          where: { id: payment.invoice.feeRecord.feeStructureId } // Wait, fee structure belongs to session
-        }); // Actually, feeRecord doesn't directly have session.
-        // Let's get the active session for the school
-        const activeSession = await tx.academicSession.findFirstOrThrow({
-          where: { schoolId: schoolId, isActive: true }
-        });
+        // 3. Generate Receipt using proper session from fee structure
+        const session = payment.invoice.feeRecord.feeStructure.academicSession;
+        const receiptNumber = await getNextReceiptNumber(tx, schoolId, session.id, session.name);
 
-        const receiptNumber = await getNextReceiptNumber(tx, schoolId, activeSession.id, activeSession.name);
-
-        const receipt = await tx.receipt.create({
+        await tx.receipt.create({
           data: {
             paymentId: payment.id,
             receiptNumber,
@@ -123,7 +149,7 @@ export async function POST(request: Request) {
             data: {
               to: parentEmail,
               subject: `Payment Receipt for Invoice ${payment.invoice.invoiceNumber}`,
-              html: `<p>Dear Parent,</p><p>We have successfully received your payment of INR ${payment.amount} for invoice ${payment.invoice.invoiceNumber}. Your receipt number is ${receiptNumber}.</p>`,
+              html: `<p>Dear Parent,</p><p>We have successfully received your payment of INR ${payment.amount} for invoice ${payment.invoice.invoiceNumber}.</p>`,
               text: `We have successfully received your payment of INR ${payment.amount} for invoice ${payment.invoice.invoiceNumber}.`,
             },
           });

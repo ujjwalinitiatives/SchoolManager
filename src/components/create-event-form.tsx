@@ -17,6 +17,16 @@ export function CreateEventForm({ classes }: { classes: ClassType[] }) {
   const [audience, setAudience] = useState("ALL");
   const [loading, setLoading] = useState(false);
 
+  // For cascading selections
+  const [selectedClassName, setSelectedClassName] = useState<string>("");
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+
+  // Derived state for dropdowns
+  const uniqueClassNames = Array.from(new Set(classes.map(c => c.name)));
+  const availableSections = selectedClassName 
+    ? classes.filter(c => c.name === selectedClassName)
+    : [];
+
   // Default to tomorrow 10 AM
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -30,10 +40,15 @@ export function CreateEventForm({ classes }: { classes: ClassType[] }) {
     setLoading(true);
     try {
       const formData = new FormData(e.currentTarget);
-      if (audience === "ALL") formData.delete("classId");
+      if (audience === "ALL") {
+        formData.delete("classIds");
+      } else {
+        selectedClassIds.forEach(id => formData.append("classIds", id));
+      }
       
       await createEvent(formData);
       setIsOpen(false);
+      setSelectedClassIds([]);
     } catch (err) {
       alert("Failed to create event.");
     } finally {
@@ -54,8 +69,8 @@ export function CreateEventForm({ classes }: { classes: ClassType[] }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-        <div className="border-b border-slate-100 px-6 py-4">
+      <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold text-slate-900">Schedule a new event</h2>
         </div>
         <form onSubmit={handleSubmit} className="p-6">
@@ -85,20 +100,69 @@ export function CreateEventForm({ classes }: { classes: ClassType[] }) {
               Target Audience
               <select name="targetAudience" value={audience} onChange={(e) => setAudience(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2.5 bg-white">
                 <option value="ALL">Entire School</option>
-                <option value="SPECIFIC_CLASS">Specific Class</option>
+                <option value="SPECIFIC_CLASSES">Specific Classes</option>
               </select>
             </label>
 
-            {audience === "SPECIFIC_CLASS" && (
-              <label className="grid gap-2 text-sm font-medium text-slate-700">
-                Select Class
-                <select name="classId" required className="rounded-lg border border-slate-300 px-3 py-2.5 bg-white">
-                  <option value="">Choose a class...</option>
-                  {classes.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} {c.section}</option>
-                  ))}
-                </select>
-              </label>
+            {audience === "SPECIFIC_CLASSES" && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="grid gap-2 text-sm font-medium text-slate-700">
+                    Class
+                    <select 
+                      value={selectedClassName} 
+                      onChange={(e) => setSelectedClassName(e.target.value)}
+                      className="rounded-lg border border-slate-300 px-3 py-2.5 bg-white"
+                    >
+                      <option value="">Select class...</option>
+                      {uniqueClassNames.map(name => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid gap-2 text-sm font-medium text-slate-700">
+                    Section
+                    <select 
+                      disabled={!selectedClassName}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        if (id && !selectedClassIds.includes(id)) {
+                          setSelectedClassIds(prev => [...prev, id]);
+                        }
+                        e.target.value = ""; // reset
+                      }}
+                      className="rounded-lg border border-slate-300 px-3 py-2.5 bg-white disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      <option value="">Add section...</option>
+                      {availableSections.filter(c => !selectedClassIds.includes(c.id)).map(c => (
+                        <option key={c.id} value={c.id}>{c.section}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                {selectedClassIds.length > 0 && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {selectedClassIds.map(id => {
+                      const cls = classes.find(c => c.id === id);
+                      if (!cls) return null;
+                      return (
+                        <span key={id} className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                          {cls.name}-{cls.section}
+                          <button 
+                            type="button"
+                            onClick={() => setSelectedClassIds(prev => prev.filter(p => p !== id))}
+                            className="hover:text-blue-900"
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             )}
           </div>
           

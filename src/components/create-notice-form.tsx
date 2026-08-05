@@ -16,6 +16,24 @@ export function CreateNoticeForm({ classes }: { classes: ClassType[] }) {
   const [audience, setAudience] = useState("ALL");
   const [loading, setLoading] = useState(false);
 
+  const distinctClassNames = Array.from(new Set(classes.map(c => c.name))).sort();
+  const [selectedClassName, setSelectedClassName] = useState(distinctClassNames[0] || "");
+  const sectionsForClass = classes.filter(c => c.name === selectedClassName).map(c => c.section).sort();
+  const [selectedSection, setSelectedSection] = useState("");
+  
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+
+  function addClass() {
+    const cls = classes.find(c => c.name === selectedClassName && c.section === selectedSection);
+    if (cls && !selectedClassIds.includes(cls.id)) {
+      setSelectedClassIds([...selectedClassIds, cls.id]);
+    }
+  }
+
+  function removeClass(id: string) {
+    setSelectedClassIds(selectedClassIds.filter(cId => cId !== id));
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -43,8 +61,8 @@ export function CreateNoticeForm({ classes }: { classes: ClassType[] }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-        <div className="border-b border-slate-100 px-6 py-4">
+      <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold text-slate-900">Publish a new notice</h2>
         </div>
         <form onSubmit={handleSubmit} className="p-6">
@@ -68,16 +86,64 @@ export function CreateNoticeForm({ classes }: { classes: ClassType[] }) {
             </label>
 
             {audience === "SPECIFIC_CLASSES" && (
-              <div className="grid gap-2">
+              <div className="grid gap-4 rounded-xl border border-slate-200 p-4 bg-slate-50">
                 <span className="text-sm font-medium text-slate-700">Select Classes</span>
-                <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-lg border border-slate-200 p-3 bg-slate-50">
-                  {classes.map(c => (
-                    <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded-md bg-white px-3 py-2 text-sm shadow-sm border border-slate-200 hover:border-blue-400">
-                      <input type="checkbox" name="classIds" value={c.id} className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600" />
-                      {c.name} {c.section}
-                    </label>
-                  ))}
+                
+                <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                  <label className="grid gap-1 text-xs text-slate-500">
+                    Class Name
+                    <select 
+                      value={selectedClassName} 
+                      onChange={(e) => {
+                        setSelectedClassName(e.target.value);
+                        setSelectedSection("");
+                      }} 
+                      className="rounded-lg border border-slate-300 px-3 py-2 bg-white"
+                    >
+                      {distinctClassNames.map(name => (
+                        <option key={name} value={name}>Class {name}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid gap-1 text-xs text-slate-500">
+                    Section
+                    <select 
+                      value={selectedSection} 
+                      onChange={(e) => setSelectedSection(e.target.value)} 
+                      className="rounded-lg border border-slate-300 px-3 py-2 bg-white"
+                    >
+                      <option value="" disabled>Select Section</option>
+                      {sectionsForClass.map(sec => (
+                        <option key={sec} value={sec}>Section {sec}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <button 
+                    type="button" 
+                    onClick={addClass}
+                    disabled={!selectedClassName || !selectedSection}
+                    className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50 h-[38px]"
+                  >
+                    Add
+                  </button>
                 </div>
+
+                {selectedClassIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedClassIds.map(id => {
+                      const cls = classes.find(c => c.id === id);
+                      return (
+                        <div key={id} className="flex items-center gap-1 rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">
+                          {cls?.name} - {cls?.section}
+                          <button type="button" onClick={() => removeClass(id)} className="ml-1 text-blue-600 hover:text-blue-900">&times;</button>
+                          <input type="hidden" name="classIds" value={id} />
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

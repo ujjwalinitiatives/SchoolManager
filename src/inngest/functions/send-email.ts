@@ -1,16 +1,15 @@
 import { inngest } from "../client";
 import { Resend } from "resend";
-import { render } from "@react-email/render";
-import { createElement } from "react";
-// We would create actual React Email templates, for now we will just use a simple raw text/html fallback.
 
 const resend = new Resend(process.env.RESEND_API_KEY || "mock-key");
 
-// @ts-ignore - Bypass inngest type signature changes
 export const sendEmailJob = inngest.createFunction(
-  { id: "send-email-notification", retries: 3 },
-  { event: "notification/email.send" },
-  async ({ event, step }) => {
+  {
+    id: "send-email-notification",
+    retries: 3,
+    triggers: [{ event: "notification/email.send" }],
+  },
+  async ({ event, step }: { event: any; step: any }) => {
     const { to, subject, html, text } = event.data;
 
     await step.run("send-via-resend", async () => {

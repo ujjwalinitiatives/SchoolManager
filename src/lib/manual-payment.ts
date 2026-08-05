@@ -14,7 +14,7 @@ interface ManualPaymentInput {
 
 export async function recordManualPayment(input: ManualPaymentInput) {
   // Use a transaction for safety
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const invoice = await tx.invoice.findUnique({
       where: { id: input.invoiceId },
       include: { 
@@ -109,7 +109,7 @@ interface RefundInput {
 }
 
 export async function processRefund(input: RefundInput) {
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const payment = await tx.payment.findUnique({
       where: { id: input.paymentId },
       include: { invoice: true },

@@ -15,10 +15,10 @@ const gatewaySelect = {
 export async function getPrincipalGatewaySettings() {
   const viewer = await getCurrentViewer();
   if (!viewer) return null;
-  validateRole(viewer.role, ["PRINCIPAL"]);
+  validateRole(viewer.role, ["PRINCIPAL", "ACCOUNTANT"]);
 
   const gateways = await prisma.paymentGateway.findMany({
-    where: { schoolId: viewer.schoolId },
+    where: { schoolId: viewer.schoolId as string },
     select: gatewaySelect,
     orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
   });
@@ -37,7 +37,7 @@ async function runSerializableTransaction<T>(operation: (tx: Prisma.TransactionC
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       return await prisma.$transaction(operation, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034" && attempt < 2) continue;
       throw error;
     }

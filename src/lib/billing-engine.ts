@@ -80,7 +80,7 @@ export async function generateInvoicesForCycle(
 
   for (const structure of feeStructures) {
     const amountDue = structure.components.reduce(
-      (total, component) => total.plus(component.amount),
+      (total: Prisma.Decimal, component: { amount: Prisma.Decimal }) => total.plus(component.amount),
       new Prisma.Decimal(0),
     );
 
@@ -89,7 +89,7 @@ export async function generateInvoicesForCycle(
     }
 
     for (const enrollment of structure.class.enrollments) {
-      const invoice = await prisma.$transaction(async (tx) => {
+      const invoice = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const feeRecord = await tx.feeRecord.upsert({
           where: {
             studentId_feeStructureId_cycleDate: {
@@ -138,7 +138,7 @@ export async function generateInvoicesForCycle(
             feeRecordId: feeRecord.id,
             totalAmount: amountDue,
             dueDate,
-            items: { create: structure.components.map((component) => ({ ...component })) },
+            items: { create: structure.components.map((component: { name: string; amount: Prisma.Decimal }) => ({ ...component })) },
           },
           select: {
             id: true,

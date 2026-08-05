@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CreateNoticeForm } from "@/components/create-notice-form";
+import { NoticesClient } from "./notices-client";
 
 export default async function NoticesPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -23,32 +24,43 @@ export default async function NoticesPage() {
 
   if (isStaff) {
     notices = await prisma.notice.findMany({
-      where: { schoolId: viewer.schoolId },
-      include: { author: { select: { name: true } }, classLinks: { include: { class: true } } },
+      where: { schoolId: viewer.schoolId as string },
+      include: { author: { select: { name: true, role: true } }, classLinks: { include: { class: true } } },
       orderBy: { createdAt: "desc" }
     });
-  } else if (viewer.role === "PARENT") {
-    const parentLinks = await prisma.parentStudentLink.findMany({
-      where: { parentId: viewer.id },
-      include: { student: { include: { enrollments: true } } }
-    });
-    const classIds = parentLinks.flatMap(link => link.student.enrollments.map(e => e.classId));
+  } else if (viewer.role === "PARENT" || viewer.role === "STUDENT") {
+    let classIds: string[] = [];
+    if (viewer.role === "PARENT") {
+      const parentLinks = await prisma.parentStudentLink.findMany({
+        where: { parentId: viewer.id },
+        include: { student: { include: { enrollments: true } } }
+      });
+      classIds = parentLinks.flatMap((link: any) => link.student.enrollments.map((e: any) => e.classId));
+    } else {
+      const student = await prisma.student.findUnique({
+        where: { userId: viewer.id },
+        include: { enrollments: true }
+      });
+      if (student) {
+        classIds = student.enrollments.map(e => e.classId);
+      }
+    }
 
     notices = await prisma.notice.findMany({
       where: { 
-        schoolId: viewer.schoolId,
+        schoolId: viewer.schoolId as string,
         OR: [
           { targetAudience: "ALL" },
           { classLinks: { some: { classId: { in: classIds } } } }
         ]
       },
-      include: { author: { select: { name: true } } },
+      include: { author: { select: { name: true, role: true } } },
       orderBy: { createdAt: "desc" }
     });
   }
 
   const classes = isStaff ? await prisma.class.findMany({
-    where: { schoolId: viewer.schoolId, isActive: true },
+    where: { schoolId: viewer.schoolId as string, isActive: true },
     orderBy: { name: "asc" }
   }) : [];
 
@@ -57,42 +69,13 @@ export default async function NoticesPage() {
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold tracking-wide text-blue-700">MESSAGING</p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-950">Notice Board</h1>
-          <p className="mt-2 max-w-2xl text-slate-600">Important announcements and updates.</p>
+          <h1 className="mt-1 text-3xl font-bold text-slate-900 dark:text-slate-100">Notice Board</h1>
+          <p className="mt-2 max-w-2xl text-slate-600 dark:text-slate-400">Important announcements and updates.</p>
         </div>
         {isStaff && <CreateNoticeForm classes={classes} />}
       </header>
 
-      <section className="grid gap-6">
-        {notices.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500 shadow-sm">
-            No notices found.
-          </div>
-        ) : (
-          notices.map((notice) => (
-            <article key={notice.id} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <header className="mb-4 border-b border-slate-100 pb-4">
-                <div className="flex items-center justify-between gap-4">
-                  <h2 className="text-xl font-bold text-slate-900">{notice.title}</h2>
-                  <time className="text-sm text-slate-500">{format(notice.createdAt, "PPP")}</time>
-                </div>
-                <div className="mt-1 flex items-center gap-2 text-sm text-slate-600">
-                  <span className="font-medium text-slate-900">{notice.author.name}</span>
-                  <span>•</span>
-                  <span>
-                    {notice.targetAudience === "ALL" ? "All Classes" : notice.classLinks?.map((l: any) => l.class.name).join(", ")}
-                  </span>
-                </div>
-              </header>
-              <div className="prose prose-slate max-w-none">
-                {notice.content.split("\n").map((para, i) => (
-                  <p key={i}>{para}</p>
-                ))}
-              </div>
-            </article>
-          ))
-        )}
-      </section>
+      <NoticesClient notices={notices as any} isTeacher={viewer.role === "TEACHER"} />
     </main>
   );
 }

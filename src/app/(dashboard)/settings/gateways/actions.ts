@@ -23,7 +23,11 @@ function providerName(formData: FormData) {
 export async function createGateway(formData: FormData) {
   const principal = await requirePrincipal();
   const webhookSecret = formData.get("webhookSecret");
+  const environment = (formData.get("environment") as string || "TEST").toUpperCase();
+  const merchantId = (formData.get("merchantId") as string || "").trim();
+
   if (webhookSecret !== null && typeof webhookSecret !== "string") throw new Error("Invalid webhook secret.");
+  if (!["TEST", "PRODUCTION", "SANDBOX"].includes(environment)) throw new Error("Invalid environment.");
 
   await prisma.paymentGateway.create({
     data: {
@@ -32,6 +36,8 @@ export async function createGateway(formData: FormData) {
       apiKey: encryptSecret(requiredText(formData, "apiKey")),
       apiSecret: encryptSecret(requiredText(formData, "apiSecret")),
       webhookSecret: webhookSecret?.trim() ? encryptSecret(webhookSecret.trim()) : null,
+      merchantId: merchantId || null,
+      environment,
     },
   });
 
@@ -47,5 +53,45 @@ export async function activateGateway(gatewayId: string) {
 export async function deactivateGateway(gatewayId: string) {
   const principal = await requirePrincipal();
   await deactivateGatewayForSchool(gatewayId, principal.schoolId);
+  revalidatePath("/settings/gateways");
+}
+
+export async function deleteGateway(gatewayId: string) {
+  const principal = await requirePrincipal();
+
+  // Check if any payments reference this gateway
+  const paymentCount = await prisma.payment.count({
+    where: { gatewayId }
+  });
+
+  if (paymentCount > 0) {
+    throw new Error("Cannot delete a gateway that has processed payments. Deactivate it instead.");
+  }
+
+  await prisma.paymentGateway.deleteMany({
+    where: { id: gatewayId, schoolId: principal.schoolId }
+  });
+
+  revalidatePath("/settings/gateways");
+}
+
+export async function saveUpiId(formData: FormData) {
+  const principal = await requirePrincipal();
+  const upiId = formData.get("upiId") as string;
+  
+  if (!upiId) throw new Error("UPI ID is required");
+
+  // Upsert bank account
+  const bankAcc = await prisma.schoolBankAccount.findFirst({ where: { schoolId: principal.schoolId } });
+  if (bankAcc) {
+    await prisma.schoolBankAccount.update({
+      where: { id: bankAcc.id },
+      data: { upiId }
+    });
+  } else {
+    await prisma.schoolBankAccount.create({
+      data: { schoolId: principal.schoolId, upiId }
+    });
+  }
   revalidatePath("/settings/gateways");
 }

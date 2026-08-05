@@ -11,6 +11,7 @@ enum Role {
   ACCOUNTANT
   TEACHER
   PARENT
+  STUDENT
 }
 
 enum FeeFrequency {
@@ -56,6 +57,8 @@ model School {
   name              String
   address           String?
   logoUrl           String?
+  udiseCode         String?   @unique
+  paymentDetails    String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -68,13 +71,15 @@ model School {
   documentSequences DocumentSequence[]
   notices           Notice[]
   events            Event[]
+  messages          Message[]
+  reportDocuments   ReportDocument[]
 }
 
 // ─── Better Auth managed tables ─────────────────────────────────
 
 model User {
   id            String    @id @default(cuid())
-  schoolId      String
+  schoolId      String?
   name          String
   email         String    @unique
   emailVerified Boolean   @default(false)
@@ -83,7 +88,7 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  school        School    @relation(fields: [schoolId], references: [id])
+  school        School?    @relation(fields: [schoolId], references: [id])
   sessions      Session[]
   accounts      Account[]
   
@@ -93,6 +98,11 @@ model User {
   refundsProcessed  Refund[]          @relation("RefundProcessedBy")
   auditLogs         AuditLog[]
   notices           Notice[]
+  sentMessages      Message[]         @relation("SentMessages")
+  receivedMessages  Message[]         @relation("MessageReceiver")
+  notifications     Notification[]
+  
+  student           Student?          @relation("StudentUser")
 
   @@index([schoolId])
 }
@@ -207,7 +217,7 @@ model Class {
   enrollments   StudentEnrollment[]
   feeStructures FeeStructure[]
   noticeLinks   NoticeClassLink[]
-  events        Event[]
+  eventLinks    EventClassLink[]
 
   @@unique([schoolId, name, section])
 }
@@ -219,15 +229,19 @@ model Student {
   admissionNumber String    // Constant throughout enrollment
   dateOfBirth     DateTime?
   admissionDate   DateTime  @default(now())
+  address         String?
   isActive        Boolean   @default(true)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   school        School             @relation(fields: [schoolId], references: [id])
+  userId        String?            @unique
+  user          User?              @relation("StudentUser", fields: [userId], references: [id])
   parentLinks   ParentStudentLink[]
   enrollments   StudentEnrollment[]
   feeRecords    FeeRecord[]
   invoices      Invoice[]
+  noticeLinks   NoticeStudentLink[]
 
   @@unique([schoolId, admissionNumber])
   @@index([schoolId])
@@ -422,6 +436,12 @@ model AuditLog {
 enum NoticeAudience {
   ALL
   SPECIFIC_CLASSES
+  SPECIFIC_STUDENTS
+}
+
+enum EventAudience {
+  ALL
+  SPECIFIC_CLASSES
 }
 
 model Notice {
@@ -437,6 +457,7 @@ model Notice {
   school          School         @relation(fields: [schoolId], references: [id])
   author          User           @relation(fields: [authorId], references: [id])
   classLinks      NoticeClassLink[]
+  studentLinks    NoticeStudentLink[]
 
   @@index([schoolId])
 }
@@ -454,18 +475,97 @@ model NoticeClassLink {
 }
 
 model Event {
+  id              String         @id @default(cuid())
+  schoolId        String
+  title           String
+  description     String?        @db.Text
+  startTime       DateTime
+  endTime         DateTime
+  targetAudience  EventAudience  @default(ALL)
+  authorId        String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  school          School         @relation(fields: [schoolId], references: [id])
+  classLinks      EventClassLink[]
+
+  @@index([schoolId, startTime])
+}
+
+model EventClassLink {
+  id         String   @id @default(cuid())
+  eventId    String
+  classId    String
+  createdAt  DateTime @default(now())
+
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  class      Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, classId])
+}
+
+model NoticeStudentLink {
+  id         String   @id @default(cuid())
+  noticeId   String
+  studentId  String
+  createdAt  DateTime @default(now())
+
+  notice     Notice   @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([noticeId, studentId])
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  schoolId    String
+  senderId    String
+  receiverId  String
+  content     String   @db.Text
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  school      School   @relation(fields: [schoolId], references: [id])
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User     @relation("MessageReceiver", fields: [receiverId], references: [id])
+
+  @@index([schoolId])
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+model OTPCode {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+model ReportDocument {
   id          String   @id @default(cuid())
   schoolId    String
   title       String
-  description String?  @db.Text
-  startTime   DateTime
-  endTime     DateTime
-  classId     String?  
+  pdfUrl      String
+  date        DateTime @default(now())
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
   school      School   @relation(fields: [schoolId], references: [id])
-  class       Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
 
-  @@index([schoolId, startTime])
+  @@index([schoolId])
 }

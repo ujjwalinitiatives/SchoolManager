@@ -1,32 +1,41 @@
 import { inngest } from "../client";
 import { prisma } from "@/lib/prisma";
 
+const BATCH_SIZE = 50;
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export const broadcastNoticeJob = inngest.createFunction(
-  { id: "broadcast-notice" },
-  { event: "notification/broadcast" },
-  async ({ event, step }) => {
+  {
+    id: "broadcast-notice",
+    triggers: [{ event: "notification/broadcast" }],
+  },
+  async ({ event, step }: { event: any; step: any }) => {
     const { noticeId } = event.data;
 
     const notice = await step.run("fetch-notice", async () => {
-      return prisma.notice.findUnique({
+      return prisma.notice.findUniqueOrThrow({
         where: { id: noticeId },
-        include: { classLinks: true }
+        include: { classLinks: true },
       });
     });
 
-    if (!notice) return { error: "Notice not found" };
-
-    const parentEmails = await step.run("fetch-parent-emails", async () => {
+    const parentEmails: string[] = await step.run("fetch-parents", async () => {
       let parents;
       if (notice.targetAudience === "ALL") {
-        // Fetch all parents in the school
         parents = await prisma.user.findMany({
           where: { schoolId: notice.schoolId, role: "PARENT" },
           select: { email: true }
         });
       } else {
-        // Fetch parents of students in specific classes
-        const classIds = notice.classLinks.map(l => l.classId);
+        const classIds = notice.classLinks.map((l: { classId: string }) => l.classId);
         parents = await prisma.user.findMany({
           where: {
             schoolId: notice.schoolId,
@@ -44,25 +53,32 @@ export const broadcastNoticeJob = inngest.createFunction(
           select: { email: true }
         });
       }
-      return parents.map(p => p.email).filter(Boolean);
+      return [...new Set(parents.map((p: { email: string }) => p.email).filter(Boolean))]; // Deduplicate
     });
 
-    // We can dispatch individual send-email jobs to parallelize the load
-    if (parentEmails.length > 0) {
-      const emailJobs = parentEmails.map(email => ({
-        name: "notification/email.send",
-        data: {
-          to: email,
-          subject: `New Notice: ${notice.title}`,
-          html: `<p>A new notice has been posted on the School Board:</p><h2>${notice.title}</h2><p>${notice.content.replace(/\n/g, '<br/>')}</p>`,
-          text: `New Notice: ${notice.title}\n\n${notice.content}`,
-        }
-      }));
-
-      // Inngest supports sending multiple events at once
-      await step.sendEvent("dispatch-emails", emailJobs);
+    if (parentEmails.length === 0) {
+      return { sent: 0 };
     }
 
-    return { success: true, parentsNotified: parentEmails.length };
+    // Send in batches to avoid payload limits
+    const totalBatches = Math.ceil(parentEmails.length / BATCH_SIZE);
+    const safeTitle = escapeHtml(notice.title);
+    const safeContent = escapeHtml(notice.content);
+    
+    for (let i = 0; i < totalBatches; i++) {
+      const batch = parentEmails.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+      const emailJobs = batch.map((email: string) => ({
+        name: "notification/email.send" as const,
+        data: {
+          to: email,
+          subject: `School Notice: ${notice.title}`,
+          html: `<h2>${safeTitle}</h2><p>${safeContent.replace(/\n/g, "<br/>")}</p>`,
+          text: `${notice.title}\n\n${notice.content}`,
+        },
+      }));
+      await step.sendEvent(`send-batch-${i}`, emailJobs);
+    }
+
+    return { sent: parentEmails.length };
   }
 );

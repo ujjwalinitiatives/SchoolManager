@@ -44,7 +44,7 @@ export async function GET(_request: Request, context: { params: Promise<{ receip
   }
 
   if (viewer.role === "PARENT") {
-    const isParent = student.parentLinks.some(link => link.parentId === viewer.id);
+    const isParent = student.parentLinks.some((link: { parentId: string }) => link.parentId === viewer.id);
     if (!isParent) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
