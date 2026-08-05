@@ -123,8 +123,7 @@ export function SetFeeForm({ distinctClassNames, existingFees }: {
             >
               <option value="MONTHLY">Monthly</option>
               <option value="QUARTERLY">Quarterly</option>
-              <option value="YEARLY">Yearly</option>
-              <option value="ONE_TIME">One Time</option>
+              <option value="ANNUAL">Yearly</option>
             </select>
           </label>
 
