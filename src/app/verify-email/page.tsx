@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ShieldCheck, Mail, ArrowRight } from "lucide-react";
 import Link from "next/link";
@@ -9,9 +9,39 @@ function VerifyEmailForm() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(10);
+  const [resending, setResending] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
+  
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(prev => prev - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
+
+  async function handleResend() {
+    if (resendCooldown > 0 || resending) return;
+    setResending(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/resend-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to resend OTP");
+      setResendCooldown(10);
+      alert("New OTP sent to your email!");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setResending(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -80,6 +110,17 @@ function VerifyEmailForm() {
         >
           {loading ? "Verifying..." : "Verify & Continue"} <ArrowRight className="w-4 h-4" />
         </button>
+
+        <div className="mt-6 text-center">
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resendCooldown > 0 || resending}
+            className="text-sm font-semibold text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors disabled:opacity-50 disabled:hover:text-slate-500"
+          >
+            {resending ? "Resending..." : resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : "Resend OTP"}
+          </button>
+        </div>
       </form>
     </div>
   );

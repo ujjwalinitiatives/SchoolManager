@@ -26,6 +26,10 @@ export default function LoginPage() {
       // 1. Enforce role match BEFORE creating session to avoid Next.js Server Action CSRF cookie mismatch
       const roleCheck = await enforceRoleMatch(email, role);
       if (!roleCheck.success) {
+        if ((roleCheck as any).requireVerification) {
+          router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+          return;
+        }
         setError(roleCheck.error || "Role mismatch.");
         setLoading(false);
         return;

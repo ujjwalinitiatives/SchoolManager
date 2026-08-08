@@ -19,6 +19,10 @@ export async function enforceRoleMatch(email: string, expectedRole: string) {
         return { success: false, error: `Account email exists, but not as a ${expectedRole.toLowerCase()}.` };
       }
     }
+
+    if (!dbUser.emailVerified) {
+      return { success: false, error: "Email not verified.", requireVerification: true };
+    }
     
     return { success: true };
   } catch (err: any) {
