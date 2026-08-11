@@ -13,7 +13,6 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [schoolName, setSchoolName] = useState("");
   const [udiseCode, setUdiseCode] = useState("");
-  const [paymentDetails, setPaymentDetails] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -53,7 +52,7 @@ export default function SignUpPage() {
         await fetch("/api/auth/assign-role", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, schoolName, udiseCode, paymentDetails }),
+          body: JSON.stringify({ email, schoolName, udiseCode }),
         });
         router.push(`/verify-email?email=${encodeURIComponent(email)}`);
         router.refresh();
@@ -107,33 +106,18 @@ export default function SignUpPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <div className="group">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                  <Hash className="h-4 w-4 text-slate-400" /> UDISE Code <span className="text-slate-400 font-normal">(Optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={udiseCode}
-                  onChange={(e) => setUdiseCode(e.target.value)}
-                  className="block w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 px-4 py-3 text-sm focus:border-blue-500 focus:ring-blue-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-colors"
-                  placeholder="11-digit code"
-                />
-              </div>
-
-              <div className="group">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-slate-400" /> Payment Account
-                </label>
-                <input
-                  type="text"
-                  value={paymentDetails}
-                  onChange={(e) => setPaymentDetails(e.target.value)}
-                  required
-                  className="block w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 px-4 py-3 text-sm focus:border-blue-500 focus:ring-blue-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-colors"
-                  placeholder="E.g., UPI ID or Acct No"
-                />
-              </div>
+            <div className="group">
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                <Hash className="h-4 w-4 text-slate-400" /> UDISE Code
+              </label>
+              <input
+                type="text"
+                value={udiseCode}
+                onChange={(e) => setUdiseCode(e.target.value)}
+                required
+                className="block w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 px-4 py-3 text-sm focus:border-blue-500 focus:ring-blue-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-colors"
+                placeholder="11-digit code"
+              />
             </div>
 
             <hr className="border-slate-100 dark:border-slate-800/60 my-6" />

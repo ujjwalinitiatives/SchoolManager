@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import crypto from "crypto";
 
 /**
@@ -12,10 +14,19 @@ import crypto from "crypto";
  */
 export async function POST(request: Request) {
   try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { email, schoolName, udiseCode, paymentDetails } = await request.json();
 
     if (!email || typeof email !== "string") {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    }
+
+    if (session.user.email !== email) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
@@ -48,12 +59,31 @@ export async function POST(request: Request) {
     });
 
     // Create a default academic session and document sequence
-    const session = await prisma.academicSession.create({
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-indexed: 0 = Jan, 3 = Apr
+
+    let startYear: number;
+    let endYear: number;
+
+    if (currentMonth >= 3) {
+      startYear = currentYear;
+      endYear = currentYear + 1;
+    } else {
+      startYear = currentYear - 1;
+      endYear = currentYear;
+    }
+
+    const sessionName = `${startYear}-${endYear}`;
+    const startDate = new Date(`${startYear}-04-01T00:00:00Z`);
+    const endDate = new Date(`${endYear}-03-31T23:59:59Z`);
+
+    const academicSession = await prisma.academicSession.create({
       data: {
         schoolId: school.id,
-        name: "2026-2027",
-        startDate: new Date("2026-04-01T00:00:00Z"),
-        endDate: new Date("2027-03-31T23:59:59Z"),
+        name: sessionName,
+        startDate,
+        endDate,
         isActive: true,
       }
     });
@@ -61,7 +91,7 @@ export async function POST(request: Request) {
     await prisma.documentSequence.create({
       data: {
         schoolId: school.id,
-        academicSessionId: session.id,
+        academicSessionId: academicSession.id,
         receiptNextSequence: 1,
         invoiceNextSequence: 1,
       }

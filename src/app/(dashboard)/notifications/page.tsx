@@ -4,16 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { Bell, CheckCircle } from "lucide-react";
 import Link from "next/link";
+import { MarkReadTrigger } from "./mark-read-trigger";
 
 export default async function NotificationsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) redirect("/login");
-
-  // Mark all as read
-  await prisma.notification.updateMany({
-    where: { userId: session.user.id, isRead: false },
-    data: { isRead: true }
-  });
 
   const notifications = await prisma.notification.findMany({
     where: { userId: session.user.id },
@@ -23,6 +18,7 @@ export default async function NotificationsPage() {
 
   return (
     <main className="mx-auto w-full max-w-4xl px-5 py-10 sm:px-8">
+      <MarkReadTrigger />
       <div className="mb-8 flex items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
           <Bell className="h-6 w-6" />

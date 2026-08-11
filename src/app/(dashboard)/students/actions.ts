@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
-
+import { getNextInvoiceNumber } from "@/lib/invoice-number";
 async function requirePrincipal() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) throw new Error("Not authenticated");
@@ -105,18 +105,16 @@ export async function addStudent(formData: FormData) {
     return { error: `Fee structure is not set for Class ${className}. Please configure the class fees on your Dashboard before adding students.` };
   }
 
-  // 1. Auto-generate Admission Number
-  const lastStudent = await prisma.student.findFirst({
-    where: { schoolId: viewer.schoolId as string },
-    orderBy: { admissionNumber: 'desc' }
+  // 1. Manual Admission Number
+  const admissionNumber = formData.get("admissionNumber") as string;
+  if (!admissionNumber) {
+    return { error: "Please provide an admission number." };
+  }
+  const existingAdmission = await prisma.student.findUnique({
+    where: { schoolId_admissionNumber: { schoolId: viewer.schoolId as string, admissionNumber } }
   });
-  
-  let admissionNumber = 'STU001';
-  if (lastStudent && lastStudent.admissionNumber.startsWith('STU')) {
-    const lastNum = parseInt(lastStudent.admissionNumber.replace('STU', ''), 10);
-    if (!isNaN(lastNum)) {
-      admissionNumber = `STU${String(lastNum + 1).padStart(3, '0')}`;
-    }
+  if (existingAdmission) {
+    return { error: "This admission number already exists for this school." };
   }
 
   // 2. Auto-assign Roll Number
@@ -191,7 +189,7 @@ export async function addStudent(formData: FormData) {
       `<p>You have been enrolled as a student on SchoolManager.</p>
        <p>Your temporary password is: <strong>${plainPassword}</strong></p>
        <p>Before logging in, please verify your email using this 6-digit code: <strong>${otp}</strong></p>
-       <p><a href="https://your-domain.com/verify-email?email=${encodeURIComponent(studentEmail)}">Click here to verify your email</a></p>`
+       <p><a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify-email?email=${encodeURIComponent(studentEmail)}">Click here to verify your email</a></p>`
     );
   } catch (error: any) {
     console.error("Error creating student account:", error);
@@ -237,30 +235,39 @@ export async function addStudent(formData: FormData) {
   // 6. Generate initial invoice based on the fee structure
   const totalAmount = feeStructure.components.reduce((acc, fc) => acc + Number(fc.amount), 0);
   if (totalAmount > 0) {
-    const feeRecord = await prisma.feeRecord.create({
-      data: {
-        studentId: student.id,
-        feeStructureId: feeStructure.id,
-        amountDue: totalAmount,
-        cycleDate: new Date(),
-      }
-    });
-
-    await prisma.invoice.create({
-      data: {
-        studentId: student.id,
-        feeRecordId: feeRecord.id,
-        invoiceNumber: `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-        status: 'PENDING',
-        totalAmount: totalAmount,
-        items: {
-          create: feeStructure.components.map(fc => ({
-            name: fc.name,
-            amount: fc.amount
-          }))
+    await prisma.$transaction(async (tx) => {
+      const feeRecord = await tx.feeRecord.create({
+        data: {
+          studentId: student.id,
+          feeStructureId: feeStructure.id,
+          amountDue: totalAmount,
+          cycleDate: new Date(),
         }
-      }
+      });
+
+      const invoiceNumber = await getNextInvoiceNumber(
+        tx,
+        viewer.schoolId as string,
+        activeSession.id,
+        activeSession.name
+      );
+
+      await tx.invoice.create({
+        data: {
+          studentId: student.id,
+          feeRecordId: feeRecord.id,
+          invoiceNumber: invoiceNumber,
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+          status: 'PENDING',
+          totalAmount: totalAmount,
+          items: {
+            create: feeStructure.components.map(fc => ({
+              name: fc.name,
+              amount: fc.amount
+            }))
+          }
+        }
+      });
     });
   }
 
@@ -274,33 +281,68 @@ export async function deleteStudent(studentId: string) {
   // Verify student belongs to school
   const student = await prisma.student.findFirst({
     where: { id: studentId, schoolId: viewer.schoolId as string },
+    include: {
+      invoices: {
+        include: { payments: { include: { receipt: true, refunds: true } }, items: true }
+      }
+    }
   });
   if (!student) throw new Error("Student not found.");
 
+  const userId = student.userId;
+  let userEmail: string | null = null;
+  if (userId) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    userEmail = user?.email || null;
+  }
+
   await prisma.$transaction(async (tx) => {
-    // Soft delete: remove active sessions and accounts so they can't log in
-    if (student.userId) {
-      await tx.account.deleteMany({ where: { userId: student.userId } });
-      await tx.session.deleteMany({ where: { userId: student.userId } });
-      
-      // Optionally scramble email to free it up for re-use, but keep the user record for foreign keys
-      await tx.user.update({
-        where: { id: student.userId },
-        data: {
-          email: `deleted_${Date.now()}_${student.userId}@deleted.com`,
-          emailVerified: false
+    // 1. Delete attendance records for this student
+    await tx.attendance.deleteMany({ where: { studentId } });
+
+    // 2. Delete notice links for this student
+    await tx.noticeStudentLink.deleteMany({ where: { studentId } });
+
+    // 3. Delete parent-student links
+    await tx.parentStudentLink.deleteMany({ where: { studentId } });
+
+    // 4. Delete enrollments
+    await tx.studentEnrollment.deleteMany({ where: { studentId } });
+
+    // 5. Delete financial data (invoices kept for 15 days for principal reference)
+    // For each invoice: delete receipts → refunds → payments → invoice items → invoice
+    for (const invoice of student.invoices) {
+      for (const payment of invoice.payments) {
+        if (payment.receipt) {
+          await tx.receipt.delete({ where: { id: payment.receipt.id } });
         }
-      });
+        await tx.refund.deleteMany({ where: { paymentId: payment.id } });
+      }
+      await tx.payment.deleteMany({ where: { invoiceId: invoice.id } });
+      await tx.invoiceItem.deleteMany({ where: { invoiceId: invoice.id } });
+      await tx.invoice.delete({ where: { id: invoice.id } });
     }
 
-    // Set student to inactive
-    await tx.student.update({
-      where: { id: studentId },
-      data: { 
-        isActive: false,
-        userId: null 
-      }
-    });
+    // 6. Delete fee records
+    await tx.feeRecord.deleteMany({ where: { studentId } });
+
+    // 7. Delete the Student record
+    await tx.student.delete({ where: { id: studentId } });
+
+    // 8. Delete User and related auth records
+    if (userId) {
+      await tx.message.deleteMany({ where: { OR: [{ senderId: userId }, { receiverId: userId }] } });
+      await tx.notification.deleteMany({ where: { userId } });
+      await tx.auditLog.deleteMany({ where: { userId } });
+      await tx.account.deleteMany({ where: { userId } });
+      await tx.session.deleteMany({ where: { userId } });
+      await tx.user.delete({ where: { id: userId } });
+    }
+
+    // 9. Delete OTP codes for this student's email
+    if (userEmail) {
+      await tx.oTPCode.deleteMany({ where: { email: userEmail } });
+    }
   });
 
   revalidatePath("/students");

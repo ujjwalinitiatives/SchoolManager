@@ -61,7 +61,7 @@ export async function sendMessage(formData: FormData) {
     await sendEmail(
       receiver.email,
       "New Message Received - SchoolManager",
-      `<p>Hello,</p><p>You have received a new message from <strong>${senderName}</strong> on SchoolManager.</p><p><a href="https://your-domain.com/messages">Click here to view your messages</a></p>`
+      `<p>Hello,</p><p>You have received a new message from <strong>${senderName}</strong> on SchoolManager.</p><p><a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/messages">Click here to view your messages</a></p>`
     );
   }
 

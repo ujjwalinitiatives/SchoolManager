@@ -118,7 +118,7 @@ export async function addStaffMember(formData: FormData) {
       `<p>You have been added as a <strong>${role}</strong> on SchoolManager.</p>
        <p>Your temporary password is: <strong>${tempPassword}</strong></p>
        <p>Before logging in, please verify your email using this 6-digit code: <strong>${otp}</strong></p>
-       <p><a href="https://your-domain.com/verify-email?email=${encodeURIComponent(email)}">Click here to verify your email</a></p>`
+       <p><a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify-email?email=${encodeURIComponent(email)}">Click here to verify your email</a></p>`
     );
 
     revalidatePath("/staff");
@@ -139,10 +139,21 @@ export async function removeStaffMember(userId: string) {
   if (!user) return { error: "Staff member not found." };
   if (user.id === viewer.id) return { error: "You cannot remove yourself." };
 
-  // Delete the user's accounts and sessions, then the user
-  await prisma.account.deleteMany({ where: { userId } });
-  await prisma.session.deleteMany({ where: { userId } });
-  await prisma.user.delete({ where: { id: userId } });
+  try {
+    // Disconnect teacher from all assigned classes before deletion
+    await prisma.class.updateMany({
+      where: { teacherId: userId },
+      data: { teacherId: null },
+    });
 
-  revalidatePath("/staff");
+    // Delete the user's accounts and sessions, then the user
+    await prisma.account.deleteMany({ where: { userId } });
+    await prisma.session.deleteMany({ where: { userId } });
+    await prisma.user.delete({ where: { id: userId } });
+
+    revalidatePath("/staff");
+  } catch (err: any) {
+    console.error("Error removing staff member:", err);
+    return { error: err?.message || "Failed to remove staff member." };
+  }
 }

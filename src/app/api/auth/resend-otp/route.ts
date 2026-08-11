@@ -18,6 +18,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email already verified" }, { status: 400 });
     }
 
+    // Rate limiting: check if an OTP for this email was created in the last 20 seconds
+    const recentOtp = await prisma.oTPCode.findFirst({
+      where: {
+        email,
+        createdAt: { gte: new Date(Date.now() - 20000) },
+      },
+    });
+
+    if (recentOtp) {
+      return NextResponse.json(
+        { error: "Please wait before requesting a new code" },
+        { status: 429 }
+      );
+    }
+
     // Generate new OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes

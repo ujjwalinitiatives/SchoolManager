@@ -59,6 +59,9 @@ export function SidebarNav({ role }: { role: string }) {
           <Link href="/students" className={getLinkClass("/students")}>
             <Users className="h-4 w-4" /> My Class
           </Link>
+          <Link href="/attendance" className={getLinkClass("/attendance")}>
+            <UserCheck className="h-4 w-4" /> Attendance
+          </Link>
           <Link href="/messages" className={getLinkClass("/messages")}>
             <MessageSquare className="h-4 w-4" /> Messages
           </Link>

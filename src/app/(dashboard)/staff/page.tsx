@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AddStaffForm } from "./add-staff-form";
-import { removeStaffMember } from "./actions";
+import { RemoveStaffButton } from "./remove-staff-button";
 
 export default async function StaffPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -96,14 +96,7 @@ export default async function StaffPage() {
               </div>
               <div>
                 {member.id !== viewer.id && (
-                  <form action={async () => {
-                    "use server";
-                    await removeStaffMember(member.id);
-                  }}>
-                    <button type="submit" className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors">
-                      Remove
-                    </button>
-                  </form>
+                  <RemoveStaffButton memberId={member.id} memberName={member.name} />
                 )}
               </div>
             </div>

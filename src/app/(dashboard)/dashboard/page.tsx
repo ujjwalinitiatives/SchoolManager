@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { format, subDays } from "date-fns";
-import { Activity, CreditCard, DollarSign, Users, CheckCircle } from "lucide-react";
+import { Activity, CreditCard, DollarSign, Users, CheckCircle, ShieldAlert } from "lucide-react";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -25,6 +25,7 @@ export default async function DashboardOverviewPage() {
   });
 
   if (!viewer) redirect("/login");
+  if (!viewer.schoolId) redirect("/login");
 
   // Only Principal and Accountant see the high-level dashboard metrics for now
   const isAdmin = viewer.role === "PRINCIPAL" || viewer.role === "ACCOUNTANT";
@@ -73,17 +74,41 @@ export default async function DashboardOverviewPage() {
       });
       studentsToDisplay = parentLinks.map((link: any) => link.student);
     } else if (viewer.role === "TEACHER") {
-      const teacherClass = await prisma.class.findFirst({
-        where: { teacherId: viewer.id, isActive: true },
-        include: {
-          _count: {
-            select: { enrollments: { where: { student: { isActive: true } } } }
+      const today = new Date(new Date().toLocaleDateString('en-CA'));
+
+      const [teacherClass, closureResult] = await Promise.all([
+        prisma.class.findFirst({
+          where: { teacherId: viewer.id, isActive: true },
+          include: {
+            _count: {
+              select: { enrollments: { where: { student: { isActive: true } } } }
+            }
           }
-        }
-      });
+        }),
+        prisma.schoolClosure.findUnique({
+          where: { schoolId_date: { schoolId: viewer.schoolId as string, date: today } }
+        })
+      ]);
+
+      let attendanceStats = { present: 0, absent: 0, closed: !!closureResult };
+      
+      if (teacherClass && !closureResult) {
+        const attendances = await prisma.attendance.groupBy({
+          by: ['status'],
+          where: { classId: teacherClass.id, date: today },
+          _count: true
+        });
+        
+        attendances.forEach(a => {
+          if (a.status === 'PRESENT') attendanceStats.present = a._count;
+          if (a.status === 'ABSENT') attendanceStats.absent = a._count;
+        });
+      }
+
       teacherStats = {
         className: teacherClass ? `${teacherClass.name} - ${teacherClass.section}` : "No Class Assigned",
-        studentCount: teacherClass ? teacherClass._count.enrollments : 0
+        studentCount: teacherClass ? teacherClass._count.enrollments : 0,
+        attendanceStats
       };
     }
     
@@ -96,15 +121,46 @@ export default async function DashboardOverviewPage() {
 
         <div className="grid gap-8">
           {viewer.role === "TEACHER" && teacherStats && (
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 shadow-sm transition-colors max-w-sm">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                  <Users className="h-6 w-6" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 shadow-sm transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                    <Users className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{teacherStats.className}</p>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{teacherStats.studentCount} Students</h2>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{teacherStats.className}</p>
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{teacherStats.studentCount} Students</h2>
-                </div>
+              </div>
+              
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 shadow-sm transition-colors">
+                {teacherStats.attendanceStats.closed ? (
+                  <div className="flex items-center gap-4 text-amber-600">
+                     <ShieldAlert className="h-10 w-10" />
+                     <div>
+                       <h2 className="text-xl font-bold">School Closed</h2>
+                       <p className="text-sm">No attendance today.</p>
+                     </div>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center h-full">
+                    <div>
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Today's Attendance</p>
+                      <div className="flex gap-4 mt-1">
+                        <div>
+                          <span className="text-2xl font-bold text-emerald-600">{teacherStats.attendanceStats.present}</span>
+                          <span className="text-xs text-slate-500 ml-1">Present</span>
+                        </div>
+                        <div>
+                          <span className="text-2xl font-bold text-rose-600">{teacherStats.attendanceStats.absent}</span>
+                          <span className="text-xs text-slate-500 ml-1">Absent</span>
+                        </div>
+                      </div>
+                    </div>
+                    <Link href="/attendance" className="text-sm font-medium text-blue-600 hover:underline">Manage</Link>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -189,53 +245,84 @@ export default async function DashboardOverviewPage() {
     );
   }
 
-  // --- Dashboard Metrics (Admins) ---
+  // --- Dashboard Metrics (Admins) --- Run ALL queries in parallel ---
   const thirtyDaysAgo = subDays(new Date(), 30);
+  const today = new Date(new Date().toLocaleDateString('en-CA'));
+  const schoolId = viewer.schoolId as string;
 
-  // 1. Total Outstanding (All pending/partial invoices)
-  const outstandingAgg = await prisma.invoice.aggregate({
-    where: { student: { schoolId: viewer.schoolId as string }, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] } },
-    _sum: { totalAmount: true, paidAmount: true }
-  });
-  
+  const [
+    outstandingAgg,
+    revenueAgg,
+    totalStudents,
+    closure,
+    recentPayments,
+    schoolClasses
+  ] = await Promise.all([
+    // 1. Total Outstanding
+    prisma.invoice.aggregate({
+      where: { student: { schoolId }, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] } },
+      _sum: { totalAmount: true, paidAmount: true }
+    }),
+    // 2. Revenue (30 days)
+    prisma.payment.aggregate({
+      where: { 
+        invoice: { student: { schoolId } },
+        status: "COMPLETED",
+        paymentDate: { gte: thirtyDaysAgo }
+      },
+      _sum: { amount: true }
+    }),
+    // 3. Total Students
+    prisma.student.count({
+      where: { schoolId, isActive: true }
+    }),
+    // 4. School Closure check
+    prisma.schoolClosure.findUnique({
+      where: { schoolId_date: { schoolId, date: today } }
+    }),
+    // 5. Recent Payments
+    prisma.payment.findMany({
+      where: { 
+        invoice: { student: { schoolId } },
+        status: "COMPLETED"
+      },
+      include: { invoice: { include: { student: true } } },
+      orderBy: { paymentDate: "desc" },
+      take: 5
+    }),
+    // 6. School Classes + Fee Structures
+    prisma.class.findMany({
+      where: { schoolId },
+      include: {
+        feeStructures: {
+          include: { components: true }
+        }
+      }
+    })
+  ]);
+
   const totalAmount = outstandingAgg._sum.totalAmount ? Number(outstandingAgg._sum.totalAmount) : 0;
-  const paidAmount = outstandingAgg._sum.paidAmount ? Number(outstandingAgg._sum.paidAmount) : 0;
-  const totalOutstanding = totalAmount - paidAmount;
-
-  // 2. Revenue Collected this Month (from Payments)
-  const revenueAgg = await prisma.payment.aggregate({
-    where: { 
-      invoice: { student: { schoolId: viewer.schoolId as string } },
-      status: "COMPLETED",
-      paymentDate: { gte: thirtyDaysAgo }
-    },
-    _sum: { amount: true }
-  });
+  const paidAmountVal = outstandingAgg._sum.paidAmount ? Number(outstandingAgg._sum.paidAmount) : 0;
+  const totalOutstanding = totalAmount - paidAmountVal;
   const revenue30Days = revenueAgg._sum.amount ? Number(revenueAgg._sum.amount) : 0;
 
-  // 3. Total Students
-  const totalStudents = await prisma.student.count({
-    where: { schoolId: viewer.schoolId as string, isActive: true }
-  });
-
-  const recentPayments = await prisma.payment.findMany({
-    where: { 
-      invoice: { student: { schoolId: viewer.schoolId as string } },
-      status: "COMPLETED"
-    },
-    include: { invoice: { include: { student: true } } },
-    orderBy: { paymentDate: "desc" },
-    take: 5
-  });
-
-  const schoolClasses = await prisma.class.findMany({
-    where: { schoolId: viewer.schoolId as string },
-    include: {
-      feeStructures: {
-        include: { components: true }
-      }
-    }
-  });
+  // 4b. Attendance (depends on closure result)
+  let schoolAttendance = { present: 0, absent: 0, closed: !!closure };
+  if (!closure) {
+     const attendances = await prisma.attendance.groupBy({
+       by: ['status'],
+       where: {
+         student: { schoolId },
+         date: today
+       },
+       _count: true
+     });
+     
+     attendances.forEach(a => {
+       if (a.status === 'PRESENT') schoolAttendance.present = a._count;
+       if (a.status === 'ABSENT') schoolAttendance.absent = a._count;
+     });
+  }
 
   const distinctClassNames = Array.from(new Set(schoolClasses.map(c => c.name))).sort();
   const existingFees: Record<string, any[]> = {};
@@ -261,7 +348,7 @@ export default async function DashboardOverviewPage() {
       <h1 className="text-4xl font-bold text-slate-900 dark:text-slate-100">Dashboard Overview</h1>
       <p className="mt-4 text-slate-600 dark:text-slate-400 text-lg">High-level financial insights for your institution.</p>
 
-      <div className="mt-12 grid w-full max-w-4xl grid-cols-1 gap-6 sm:grid-cols-3">
+      <div className="mt-12 grid w-full max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {/* Metric 1 */}
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 shadow-sm transition-colors">
           <div className="flex items-center gap-4">
@@ -299,6 +386,32 @@ export default async function DashboardOverviewPage() {
               <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{totalStudents.toLocaleString()}</h2>
             </div>
           </div>
+        </div>
+
+        {/* Metric 4 */}
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 shadow-sm transition-colors">
+          {schoolAttendance.closed ? (
+            <div className="flex items-center gap-4 text-amber-600">
+               <ShieldAlert className="h-10 w-10" />
+               <div>
+                 <p className="text-sm font-bold">School Closed</p>
+               </div>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Today's Attendance</p>
+              <div className="flex gap-4 mt-2">
+                <div>
+                  <span className="text-xl font-bold text-emerald-600">{schoolAttendance.present}</span>
+                  <span className="text-xs text-slate-500 ml-1">Present</span>
+                </div>
+                <div>
+                  <span className="text-xl font-bold text-rose-600">{schoolAttendance.absent}</span>
+                  <span className="text-xs text-slate-500 ml-1">Absent</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

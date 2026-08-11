@@ -36,6 +36,9 @@ export async function POST(request: Request) {
       where: { email }
     });
 
+    await prisma.oTPCode.deleteMany({
+      where: { expiresAt: { lt: new Date() } }
+    });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Verification error:", error);
