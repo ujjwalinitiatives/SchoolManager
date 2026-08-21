@@ -105,6 +105,9 @@ function VerifyEmailForm() {
         <p className="mt-2 text-slate-600 dark:text-slate-400">
           We sent a 6-digit verification code to <strong className="text-slate-900 dark:text-slate-200">{email}</strong>
         </p>
+        <p className="mt-2 text-sm text-amber-600 dark:text-amber-400 font-medium">
+          ⚠️ Check your Spam / Junk folder if you don't see the email in your inbox.
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="glass-card p-8 sm:p-10">
