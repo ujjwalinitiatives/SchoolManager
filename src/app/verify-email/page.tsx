@@ -15,6 +15,32 @@ function VerifyEmailForm() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
   
+  // Auto-send a fresh OTP when the page loads
+  useEffect(() => {
+    if (!email) return;
+    let cancelled = false;
+
+    async function sendInitialOtp() {
+      try {
+        const res = await fetch("/api/auth/resend-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        // Ignore rate-limit errors (429) silently — means an OTP was sent recently
+        if (!res.ok && res.status !== 429) {
+          const data = await res.json();
+          if (!cancelled) setError(data.error || "Failed to send verification code");
+        }
+      } catch {
+        // Silently ignore network errors on initial send
+      }
+    }
+
+    sendInitialOtp();
+    return () => { cancelled = true; };
+  }, [email]);
+
   useEffect(() => {
     if (resendCooldown > 0) {
       const timer = setTimeout(() => setResendCooldown(prev => prev - 1), 1000);

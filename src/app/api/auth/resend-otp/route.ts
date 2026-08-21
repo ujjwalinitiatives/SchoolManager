@@ -48,6 +48,10 @@ export async function POST(req: Request) {
       }
     });
 
+    console.log("=========================================");
+    console.log(`🔑 RESEND OTP - CODE FOR ${email}: ${otp}`);
+    console.log("=========================================");
+
     await sendEmail(
       email,
       "SchoolManager - Verification Code",

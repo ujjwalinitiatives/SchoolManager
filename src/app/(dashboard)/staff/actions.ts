@@ -99,7 +99,7 @@ export async function addStaffMember(formData: FormData) {
       }
     }
 
-    // Generate 6 digit OTP
+    // Generate 6 digit OTP for email verification
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
@@ -111,13 +111,13 @@ export async function addStaffMember(formData: FormData) {
       }
     });
 
-    // Send email
+    // Send email with password AND verification code
     await sendEmail(
       email,
       "Welcome to SchoolManager - Verify your Account",
       `<p>You have been added as a <strong>${role}</strong> on SchoolManager.</p>
        <p>Your temporary password is: <strong>${tempPassword}</strong></p>
-       <p>Before logging in, please verify your email using this 6-digit code: <strong>${otp}</strong></p>
+       <p>Your email verification code is: <strong>${otp}</strong></p>
        <p><a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify-email?email=${encodeURIComponent(email)}">Click here to verify your email</a></p>`
     );
 
