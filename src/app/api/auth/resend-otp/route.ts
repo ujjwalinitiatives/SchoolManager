@@ -61,6 +61,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Resend OTP error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Failed to send verification code" }, { status: 500 });
   }
 }
