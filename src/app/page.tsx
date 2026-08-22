@@ -15,14 +15,14 @@ export default async function Home() {
     <div className="min-h-screen bg-gradient-premium overflow-hidden">
       {/* Navigation */}
       <header className="fixed top-0 w-full z-50 border-b border-white/20 glass">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30">
-              <span className="font-bold text-lg">SM</span>
+        <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30">
+              <span className="font-bold text-sm sm:text-lg">SM</span>
             </div>
-            <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">SchoolManager</span>
+            <span className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">SchoolManager</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link
               href="/login"
               className="text-sm font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors"
@@ -31,7 +31,7 @@ export default async function Home() {
             </Link>
             <Link
               href="/signup"
-              className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-slate-800 transition-all dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
+              className="rounded-xl bg-slate-900 px-4 sm:px-5 py-2 sm:py-2.5 text-sm font-semibold text-white shadow-md hover:bg-slate-800 transition-all dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
             >
               Get Started
             </Link>
@@ -39,36 +39,36 @@ export default async function Home() {
         </div>
       </header>
 
-      <main className="relative pt-32 pb-20 sm:pt-40 sm:pb-24">
+      <main className="relative pt-24 pb-16 sm:pt-40 sm:pb-24">
         {/* Background decorative elements */}
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-500/20 blur-[120px] rounded-full pointer-events-none -z-10 animate-float" />
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[500px] sm:w-[800px] h-[300px] sm:h-[400px] bg-blue-500/20 blur-[120px] rounded-full pointer-events-none -z-10 animate-float" />
 
         {/* Hero Section */}
-        <section className="mx-auto max-w-7xl px-6 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50/50 dark:border-blue-500/30 dark:bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 backdrop-blur-sm mb-8 animate-fade-in">
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50/50 dark:border-blue-500/30 dark:bg-blue-500/10 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-300 backdrop-blur-sm mb-6 sm:mb-8 animate-fade-in">
             <span className="flex h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
             Next Generation School Administration
           </div>
           
-          <h1 className="mx-auto max-w-4xl text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-7xl mb-8">
+          <h1 className="mx-auto max-w-4xl text-3xl sm:text-5xl lg:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-5 sm:mb-8">
             Manage your school with{" "}
-            <span className="text-gradient block mt-2">absolute precision.</span>
+            <span className="text-gradient block mt-1 sm:mt-2">absolute precision.</span>
           </h1>
           
-          <p className="mx-auto max-w-2xl text-lg text-slate-600 dark:text-slate-400 mb-10 leading-relaxed">
+          <p className="mx-auto max-w-2xl text-base sm:text-lg text-slate-600 dark:text-slate-400 mb-8 sm:mb-10 leading-relaxed px-2">
             A unified operating system for educational institutions. Handle admissions, fees, billing, and parent communication in one beautifully designed platform.
           </p>
           
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 px-4 sm:px-0">
             <Link
               href="/signup"
-              className="flex items-center gap-2 rounded-2xl bg-blue-600 px-8 py-4 text-base font-bold text-white shadow-xl shadow-blue-500/25 hover:bg-blue-700 hover:scale-105 transition-all"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-8 py-3.5 sm:py-4 text-base font-bold text-white shadow-xl shadow-blue-500/25 hover:bg-blue-700 hover:scale-105 transition-all"
             >
               Start for free <ArrowRight className="h-5 w-5" />
             </Link>
             <Link
               href="/login"
-              className="flex items-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 px-8 py-4 text-base font-bold text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition-all backdrop-blur-sm"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 px-8 py-3.5 sm:py-4 text-base font-bold text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition-all backdrop-blur-sm"
             >
               Book a Demo
             </Link>
@@ -131,30 +131,30 @@ export default async function Home() {
         </section>
 
         {/* Stats Section */}
-        <section className="mx-auto max-w-5xl px-6 mt-32">
-          <div className="glass-card p-10 grid grid-cols-2 md:grid-cols-4 gap-8 divide-x divide-slate-100 dark:divide-slate-800">
+        <section className="mx-auto max-w-5xl px-4 sm:px-6 mt-20 sm:mt-32">
+          <div className="glass-card p-6 sm:p-10 grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 sm:divide-x sm:divide-slate-100 sm:dark:divide-slate-800">
             {[
               { label: "Active Schools", value: "500+" },
-              { label: "Transactions Processed", value: "$2M+" },
+              { label: "Transactions Processed", value: "₹2Cr+" },
               { label: "Students Managed", value: "100k+" },
               { label: "Uptime SLA", value: "99.9%" },
             ].map((stat, i) => (
-              <div key={i} className="flex flex-col items-center justify-center text-center px-4">
-                <span className="text-3xl font-black text-slate-900 dark:text-white mb-2">{stat.value}</span>
-                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{stat.label}</span>
+              <div key={i} className="flex flex-col items-center justify-center text-center px-2 sm:px-4">
+                <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-1 sm:mb-2">{stat.value}</span>
+                <span className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">{stat.label}</span>
               </div>
             ))}
           </div>
         </section>
 
         {/* Features Grid */}
-        <section className="mx-auto max-w-7xl px-6 mt-32">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-slate-900 dark:text-white sm:text-4xl">Everything you need to run your school</h2>
-            <p className="mt-4 text-lg text-slate-600 dark:text-slate-400">Purpose-built tools for every administrative role.</p>
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 mt-20 sm:mt-32">
+          <div className="text-center mb-10 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white">Everything you need to run your school</h2>
+            <p className="mt-3 sm:mt-4 text-base sm:text-lg text-slate-600 dark:text-slate-400">Purpose-built tools for every administrative role.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-8">
             {[
               {
                 icon: <LayoutDashboard className="h-6 w-6 text-blue-600" />,
@@ -172,12 +172,12 @@ export default async function Home() {
                 desc: "Dedicated interfaces for Principals, Accountants, Teachers, and Parents ensuring secure access."
               }
             ].map((feature, i) => (
-              <div key={i} className="glass-card p-8 hover:-translate-y-1 transition-transform duration-300">
-                <div className="h-12 w-12 rounded-2xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center mb-6">
+              <div key={i} className="glass-card p-6 sm:p-8 hover:-translate-y-1 transition-transform duration-300">
+                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center mb-4 sm:mb-6">
                   {feature.icon}
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">{feature.title}</h3>
-                <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{feature.desc}</p>
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-2 sm:mb-3">{feature.title}</h3>
+                <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed">{feature.desc}</p>
               </div>
             ))}
           </div>

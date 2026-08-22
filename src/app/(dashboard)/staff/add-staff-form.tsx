@@ -5,7 +5,7 @@ import { addStaffMember } from "./actions";
 
 export function AddStaffForm() {
   const [isPending, startTransition] = useTransition();
-  const [result, setResult] = useState<{ tempPassword: string; email: string; verificationCode?: string } | null>(null);
+  const [result, setResult] = useState<{ tempPassword: string; email: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState("");
 
@@ -23,7 +23,7 @@ export function AddStaffForm() {
         if ('error' in res && res.error) {
           setError(res.error);
         } else if ('tempPassword' in res && res.tempPassword) {
-          setResult({ tempPassword: res.tempPassword, email, verificationCode: (res as any).verificationCode });
+          setResult({ tempPassword: res.tempPassword, email });
         }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to add staff member.");
@@ -41,14 +41,11 @@ export function AddStaffForm() {
           <p className="mt-2 text-emerald-700">
             Share these credentials with <strong>{result.email}</strong>:
           </p>
-          <div className="mt-2 rounded-md bg-white border border-emerald-200 px-4 py-3 font-mono text-sm text-slate-900 space-y-1">
+          <div className="mt-2 rounded-md bg-white border border-emerald-200 px-4 py-3 font-mono text-sm text-slate-900">
             <p>Email: <strong>{result.email}</strong></p>
             <p>Temp Password: <strong>{result.tempPassword}</strong></p>
-            {result.verificationCode && (
-              <p>Verification Code: <strong className="text-blue-700 text-lg">{result.verificationCode}</strong></p>
-            )}
           </div>
-          <p className="mt-2 text-xs text-emerald-600">Share the verification code &amp; password with the member. They will need the code on first login.</p>
+          <p className="mt-2 text-xs text-emerald-600">A verification code has been sent to their email. They should check spam folder if not received.</p>
         </div>
       )}
 

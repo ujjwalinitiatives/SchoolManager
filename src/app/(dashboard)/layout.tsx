@@ -8,6 +8,9 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { DashboardLayoutClient } from "./dashboard-layout-client";
 import { NotificationBell } from "@/components/notification-bell";
+import { UserThemeProvider } from "@/components/user-theme-provider";
+import BottomNav from "@/components/bottom-nav";
+
 
 export default async function DashboardLayout({
   children,
@@ -62,11 +65,14 @@ export default async function DashboardLayout({
   );
 
   return (
-    <DashboardLayoutClient 
-      sidebarContent={sidebarContent}
-      headerActions={headerActions}
-    >
-      {children}
-    </DashboardLayoutClient>
+    <UserThemeProvider userId={session.user.id}>
+      <DashboardLayoutClient 
+        sidebarContent={sidebarContent}
+        headerActions={headerActions}
+      >
+        {children}
+      </DashboardLayoutClient>
+      <BottomNav role={role} />
+    </UserThemeProvider>
   );
 }

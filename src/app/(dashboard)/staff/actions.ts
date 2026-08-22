@@ -122,7 +122,7 @@ export async function addStaffMember(formData: FormData) {
     );
 
     revalidatePath("/staff");
-    return { tempPassword, email, verificationCode: otp };
+    return { tempPassword, email };
   } catch (err: any) {
     console.error("Error creating staff account:", err);
     return { error: err.message || "Failed to create staff member." };
