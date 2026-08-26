@@ -224,7 +224,7 @@ export default async function Home() {
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
                 <Mail className="h-4 w-4" />
               </span>
-              <span>Reach Out: ujjwalkumar77890@gmail.com</span>
+              <span>Reach Us</span>
             </a>
           </nav>
 
