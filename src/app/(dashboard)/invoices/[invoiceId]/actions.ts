@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { AccessDeniedError, validateRole } from "@/lib/access-control";
 import { Prisma } from "@prisma/client";
 
-export async function markInvoiceAsPaidByCash(invoiceId: string) {
+export async function markInvoiceAsPaidByCash(invoiceId: string, amount: number) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) throw new AccessDeniedError("Not authenticated");
   
@@ -28,11 +28,22 @@ export async function markInvoiceAsPaidByCash(invoiceId: string) {
     throw new Error("Invoice is already fully paid.");
   }
 
+  const payAmount = new Prisma.Decimal(amount);
+  if (payAmount.lte(0)) {
+    throw new Error("Amount must be greater than 0.");
+  }
+  if (payAmount.gt(outstanding)) {
+    throw new Error(`Amount cannot exceed outstanding balance of ₹${outstanding.toFixed(2)}.`);
+  }
+
+  const newPaidAmount = new Prisma.Decimal(invoice.paidAmount).add(payAmount);
+  const newStatus = newPaidAmount.gte(invoice.totalAmount) ? "PAID" : "PARTIAL";
+
   await prisma.$transaction(async (tx) => {
     await tx.payment.create({
       data: {
         invoiceId: invoice.id,
-        amount: outstanding,
+        amount: payAmount,
         method: "CASH",
         status: "COMPLETED",
       }
@@ -41,18 +52,19 @@ export async function markInvoiceAsPaidByCash(invoiceId: string) {
     await tx.invoice.update({
       where: { id: invoice.id },
       data: {
-        paidAmount: { increment: outstanding },
-        status: "PAID"
+        paidAmount: { increment: payAmount },
+        status: newStatus
       }
     });
   });
 
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath(`/invoices`);
+  revalidatePath(`/dashboard`);
   return { success: true };
 }
 
-export async function confirmUpiPayment(paymentId: string) {
+export async function confirmUpiPayment(paymentId: string, actualAmount: number) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) throw new AccessDeniedError("Not authenticated");
   
@@ -69,7 +81,6 @@ export async function confirmUpiPayment(paymentId: string) {
   });
   if (!payment || payment.invoice.studentId === undefined) throw new Error("Payment not found");
   
-  // Quick check that it belongs to the school (via invoice)
   const invoice = await prisma.invoice.findFirst({
     where: { id: payment.invoiceId, student: { schoolId: user.schoolId } }
   });
@@ -79,22 +90,40 @@ export async function confirmUpiPayment(paymentId: string) {
     throw new Error("Payment is already " + payment.status);
   }
 
+  const confirmedAmount = new Prisma.Decimal(actualAmount);
+  const outstanding = new Prisma.Decimal(invoice.totalAmount).minus(invoice.paidAmount);
+
+  if (confirmedAmount.lte(0)) {
+    throw new Error("Amount must be greater than 0.");
+  }
+  if (confirmedAmount.gt(outstanding)) {
+    throw new Error(`Amount cannot exceed outstanding balance of ₹${outstanding.toFixed(2)}.`);
+  }
+
+  const newPaidAmount = new Prisma.Decimal(invoice.paidAmount).add(confirmedAmount);
+  const newStatus = newPaidAmount.gte(invoice.totalAmount) ? "PAID" : "PARTIAL";
+
   await prisma.$transaction(async (tx) => {
     await tx.payment.update({
       where: { id: payment.id },
-      data: { status: "COMPLETED" }
+      data: { 
+        status: "COMPLETED",
+        amount: confirmedAmount,
+      }
     });
 
     await tx.invoice.update({
       where: { id: payment.invoiceId },
       data: {
-        paidAmount: { increment: payment.amount },
-        status: "PAID"
+        paidAmount: { increment: confirmedAmount },
+        status: newStatus
       }
     });
   });
 
   revalidatePath(`/invoices/${payment.invoiceId}`);
   revalidatePath(`/invoices`);
+  revalidatePath(`/dashboard`);
   return { success: true };
 }
+

@@ -33,7 +33,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ invoic
         <div className="flex gap-3 items-center">
           <a href={`/api/invoices/${invoice.id}/pdf`} className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">Download PDF</a>
           {(viewer.role === "PRINCIPAL" || viewer.role === "ACCOUNTANT") && outstanding > 0 && (
-            <MarkPaidButton invoiceId={invoice.id} />
+            <MarkPaidButton invoiceId={invoice.id} outstanding={outstanding} />
           )}
           {viewer.role === "STUDENT" && outstanding > 0 && (
             <CheckoutButton 
@@ -92,7 +92,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ invoic
                         {payment.status}
                       </span>
                       {payment.status === "PROCESSING" && (viewer.role === "PRINCIPAL" || viewer.role === "ACCOUNTANT") && (
-                        <ConfirmUpiButton paymentId={payment.id} />
+                        <ConfirmUpiButton paymentId={payment.id} expectedAmount={Number(payment.amount)} outstanding={outstanding} />
                       )}
                     </div>
                   </div>
