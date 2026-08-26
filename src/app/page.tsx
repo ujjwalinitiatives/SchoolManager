@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { ArrowRight, CheckCircle2, Shield, Users, CreditCard, LayoutDashboard } from "lucide-react";
+import { ArrowRight, CheckCircle2, Shield, Users, CreditCard, LayoutDashboard, Mail } from "lucide-react";
 
 export default async function Home() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -213,19 +213,26 @@ export default async function Home() {
 
       <footer className="border-t border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-lg py-12 text-center">
         <div className="flex flex-col items-center justify-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded bg-blue-600 text-[10px] font-bold text-white flex items-center justify-center">SM</div>
-            <span className="font-bold text-slate-900 dark:text-white">SchoolManager</span>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-[11px] font-bold text-white flex items-center justify-center shadow-md">SM</div>
+            <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">SchoolManager</span>
           </div>
           
-          <nav className="flex items-center gap-6 text-sm font-medium text-slate-600 dark:text-slate-400">
-            <Link href="#about" className="hover:text-blue-600 transition-colors">About Us</Link>
-            <a href="mailto:support@schoolmanager.com" className="hover:text-blue-600 transition-colors">Contact via Mail</a>
+          <nav className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm font-medium text-slate-600 dark:text-slate-400">
+            <Link href="#about" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">About Us</Link>
+            <a href="mailto:ujjwalkumar77890@gmail.com" className="group flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
+                <Mail className="h-4 w-4" />
+              </span>
+              <span>Reach Out: ujjwalkumar77890@gmail.com</span>
+            </a>
           </nav>
 
-          <p className="text-sm text-slate-500 dark:text-slate-500">
-            © {new Date().getFullYear()} SchoolManager. All rights reserved.
-          </p>
+          <div className="mt-4 w-full max-w-md border-t border-slate-200 dark:border-slate-800 pt-6">
+            <p className="text-sm text-slate-500 dark:text-slate-500">
+              © {new Date().getFullYear()} SchoolManager. All rights reserved.
+            </p>
+          </div>
         </div>
       </footer>
     </div>
