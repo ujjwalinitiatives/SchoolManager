@@ -129,38 +129,37 @@ export default async function AttendanceReportPage({
 
       <div className="border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-950 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-max min-w-full text-left text-sm border-collapse">
+          <table className="border-collapse" style={{ minWidth: `${120 + daysInMonth.length * 36 + 80}px` }}>
             <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300 sticky left-0 bg-slate-50 dark:bg-slate-900 z-20 border-r border-slate-200 dark:border-slate-800 min-w-[200px]">
-                  Student Name
+                <th className="px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 text-left sticky left-0 bg-slate-50 dark:bg-slate-900 z-20 border-r border-slate-200 dark:border-slate-800" style={{ width: 120, minWidth: 120, maxWidth: 120 }}>
+                  Student
                 </th>
                 {daysInMonth.map(day => (
-                  <th key={day.toISOString()} className="px-2 py-3 font-semibold text-slate-700 dark:text-slate-300 text-center min-w-[40px] border-r border-slate-200 dark:border-slate-800 last:border-r-0">
-                    <div className="flex flex-col items-center">
-                      <span className="text-[10px] uppercase text-slate-500">{format(day, 'E')}</span>
-                      <span>{format(day, 'd')}</span>
+                  <th key={day.toISOString()} className="py-2 text-center border-r border-slate-200 dark:border-slate-800 last:border-r-0" style={{ width: 36, minWidth: 36 }}>
+                    <div className="flex flex-col items-center leading-tight">
+                      <span className="text-[9px] uppercase text-slate-400 font-medium">{format(day, 'eee').charAt(0)}</span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{format(day, 'd')}</span>
                     </div>
                   </th>
                 ))}
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300 sticky right-0 bg-slate-50 dark:bg-slate-900 z-10 border-l border-slate-200 dark:border-slate-800 min-w-[100px] text-center">
+                <th className="px-2 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 text-center border-l border-slate-200 dark:border-slate-800" style={{ width: 80, minWidth: 80 }}>
                   Total
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 relative z-0">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {enrollments.map((enrollment, index) => {
                 const student = enrollment.student;
                 let presentCount = 0;
                 let absentCount = 0;
+                const bgClass = index % 2 === 0 ? "bg-white dark:bg-slate-950" : "bg-slate-50/50 dark:bg-slate-900/30";
 
                 return (
-                  <tr key={student.id} className={index % 2 === 0 ? "bg-white dark:bg-slate-950" : "bg-slate-50/50 dark:bg-slate-900/50"}>
-                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100 sticky left-0 z-10 border-r border-slate-200 dark:border-slate-800" style={{ backgroundColor: 'inherit' }}>
-                      <div className="flex flex-col">
-                        <span>{student.name}</span>
-                        <span className="text-[10px] text-slate-500">Roll: {enrollment.rollNumber}</span>
-                      </div>
+                  <tr key={student.id} className={bgClass}>
+                    <td className={`px-3 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 sticky left-0 z-10 border-r border-slate-200 dark:border-slate-800 truncate ${bgClass}`} style={{ width: 120, minWidth: 120, maxWidth: 120 }}>
+                      <span className="block truncate">{student.name}</span>
+                      <span className="block text-[10px] text-slate-400">{enrollment.rollNumber}</span>
                     </td>
                     {daysInMonth.map(day => {
                       const dateKey = format(day, 'yyyy-MM-dd');
@@ -171,25 +170,28 @@ export default async function AttendanceReportPage({
                       if (status === 'PRESENT') presentCount++;
                       if (status === 'ABSENT') absentCount++;
 
+                      const dimBg = isWeekend || isClosed ? 'bg-slate-100/80 dark:bg-slate-800/40' : '';
+
                       return (
-                        <td key={dateKey} className={`px-2 py-3 text-center border-r border-slate-200 dark:border-slate-800 last:border-r-0 ${isWeekend || isClosed ? 'bg-slate-100 dark:bg-slate-800/50' : ''}`}>
+                        <td key={dateKey} className={`py-2 text-center border-r border-slate-100 dark:border-slate-800 last:border-r-0 ${dimBg}`} style={{ width: 36, minWidth: 36 }}>
                           {status === 'PRESENT' ? (
-                            <span className="text-emerald-600 font-bold">P</span>
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-xs font-bold">P</span>
                           ) : status === 'ABSENT' ? (
-                            <span className="text-rose-600 font-bold">A</span>
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400 text-xs font-bold">A</span>
                           ) : isClosed ? (
-                            <span className="text-amber-500 text-xs" title="School Closed">-</span>
+                            <span className="text-amber-400 text-[10px]">H</span>
                           ) : isWeekend ? (
-                            <span className="text-slate-400 text-xs">-</span>
+                            <span className="text-slate-300 dark:text-slate-600 text-[10px]">•</span>
                           ) : (
-                            <span className="text-slate-300 dark:text-slate-700 text-xs">-</span>
+                            <span className="text-slate-300 dark:text-slate-700 text-[10px]">-</span>
                           )}
                         </td>
                       );
                     })}
-                    <td className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap border-l border-slate-200 dark:border-slate-800 sticky right-0" style={{ backgroundColor: 'inherit' }}>
-                      <span className="text-emerald-600 mr-2">{presentCount}P</span>
-                      <span className="text-rose-600">{absentCount}A</span>
+                    <td className={`px-2 py-2 text-center font-semibold whitespace-nowrap border-l border-slate-200 dark:border-slate-800 ${bgClass}`} style={{ width: 80, minWidth: 80 }}>
+                      <span className="text-emerald-600 text-xs">{presentCount}P</span>
+                      <span className="text-slate-300 dark:text-slate-600 mx-0.5">/</span>
+                      <span className="text-rose-600 text-xs">{absentCount}A</span>
                     </td>
                   </tr>
                 );
