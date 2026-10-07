@@ -158,7 +158,10 @@ export default async function DashboardOverviewPage() {
                         </div>
                       </div>
                     </div>
-                    <Link href="/attendance" className="text-sm font-medium text-blue-600 hover:underline">Manage</Link>
+                    <div className="flex flex-col gap-2 items-end">
+                      <Link href="/attendance" className="text-sm font-medium text-blue-600 hover:underline">Mark Today</Link>
+                      <Link href="/attendance/report" className="text-sm font-medium text-indigo-600 hover:underline">View Monthly Report</Link>
+                    </div>
                   </div>
                 )}
               </div>

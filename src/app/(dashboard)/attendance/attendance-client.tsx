@@ -89,7 +89,7 @@ export function AttendanceClient({ students, classId, academicSessionId, dateStr
           </p>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {!optimisticClosed && (
             <>
               <button 
@@ -132,7 +132,7 @@ export function AttendanceClient({ students, classId, academicSessionId, dateStr
           </p>
         </div>
       ) : (
-        <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-950">
+        <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto bg-white dark:bg-slate-950">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
               <tr>
