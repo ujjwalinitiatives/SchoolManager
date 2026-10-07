@@ -129,7 +129,7 @@ export default async function AttendanceReportPage({
 
       <div className="border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-950 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="border-collapse" style={{ minWidth: `${120 + daysInMonth.length * 36 + 80}px` }}>
+          <table className="border-collapse" style={{ minWidth: `${120 + daysInMonth.length * 36}px` }}>
             <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 text-left sticky left-0 bg-slate-50 dark:bg-slate-900 z-20 border-r border-slate-200 dark:border-slate-800" style={{ width: 120, minWidth: 120, maxWidth: 120 }}>
@@ -143,33 +143,38 @@ export default async function AttendanceReportPage({
                     </div>
                   </th>
                 ))}
-                <th className="px-2 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 text-center border-l border-slate-200 dark:border-slate-800" style={{ width: 80, minWidth: 80 }}>
-                  Total
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {enrollments.map((enrollment, index) => {
                 const student = enrollment.student;
+                const bgClass = index % 2 === 0 ? "bg-white dark:bg-slate-950" : "bg-slate-50/50 dark:bg-slate-900/30";
+
+                // Pre-compute totals
                 let presentCount = 0;
                 let absentCount = 0;
-                const bgClass = index % 2 === 0 ? "bg-white dark:bg-slate-950" : "bg-slate-50/50 dark:bg-slate-900/30";
+                daysInMonth.forEach(day => {
+                  const status = attendanceMap.get(`${student.id}-${format(day, 'yyyy-MM-dd')}`);
+                  if (status === 'PRESENT') presentCount++;
+                  if (status === 'ABSENT') absentCount++;
+                });
 
                 return (
                   <tr key={student.id} className={bgClass}>
-                    <td className={`px-3 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 sticky left-0 z-10 border-r border-slate-200 dark:border-slate-800 truncate ${bgClass}`} style={{ width: 120, minWidth: 120, maxWidth: 120 }}>
+                    <td className={`px-3 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 sticky left-0 z-10 border-r border-slate-200 dark:border-slate-800 ${bgClass}`} style={{ width: 120, minWidth: 120, maxWidth: 120 }}>
                       <span className="block truncate">{student.name}</span>
                       <span className="block text-[10px] text-slate-400">{enrollment.rollNumber}</span>
+                      <span className="block mt-0.5 text-[10px] font-bold">
+                        <span className="text-emerald-600">{presentCount}P</span>
+                        <span className="text-slate-300 dark:text-slate-600 mx-0.5">/</span>
+                        <span className="text-rose-600">{absentCount}A</span>
+                      </span>
                     </td>
                     {daysInMonth.map(day => {
                       const dateKey = format(day, 'yyyy-MM-dd');
                       const isClosed = closureMap.has(dateKey);
                       const isWeekend = day.getDay() === 0 || day.getDay() === 6;
                       const status = attendanceMap.get(`${student.id}-${dateKey}`);
-
-                      if (status === 'PRESENT') presentCount++;
-                      if (status === 'ABSENT') absentCount++;
-
                       const dimBg = isWeekend || isClosed ? 'bg-slate-100/80 dark:bg-slate-800/40' : '';
 
                       return (
@@ -188,11 +193,6 @@ export default async function AttendanceReportPage({
                         </td>
                       );
                     })}
-                    <td className={`px-2 py-2 text-center font-semibold whitespace-nowrap border-l border-slate-200 dark:border-slate-800 ${bgClass}`} style={{ width: 80, minWidth: 80 }}>
-                      <span className="text-emerald-600 text-xs">{presentCount}P</span>
-                      <span className="text-slate-300 dark:text-slate-600 mx-0.5">/</span>
-                      <span className="text-rose-600 text-xs">{absentCount}A</span>
-                    </td>
                   </tr>
                 );
               })}
