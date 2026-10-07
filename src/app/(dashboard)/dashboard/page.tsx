@@ -144,23 +144,27 @@ export default async function DashboardOverviewPage() {
                      </div>
                   </div>
                 ) : (
-                  <div className="flex justify-between items-center h-full">
+                  <div className="flex flex-col h-full justify-between">
                     <div>
                       <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Today's Attendance</p>
-                      <div className="flex gap-4 mt-1">
+                      <div className="flex gap-6 mt-3">
                         <div>
-                          <span className="text-2xl font-bold text-emerald-600">{teacherStats.attendanceStats.present}</span>
-                          <span className="text-xs text-slate-500 ml-1">Present</span>
+                          <span className="text-3xl font-bold text-emerald-600">{teacherStats.attendanceStats.present}</span>
+                          <span className="text-xs font-semibold text-slate-500 ml-1 uppercase tracking-wider">Present</span>
                         </div>
                         <div>
-                          <span className="text-2xl font-bold text-rose-600">{teacherStats.attendanceStats.absent}</span>
-                          <span className="text-xs text-slate-500 ml-1">Absent</span>
+                          <span className="text-3xl font-bold text-rose-600">{teacherStats.attendanceStats.absent}</span>
+                          <span className="text-xs font-semibold text-slate-500 ml-1 uppercase tracking-wider">Absent</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2 items-end">
-                      <Link href="/attendance" className="text-sm font-medium text-blue-600 hover:underline">Mark Today</Link>
-                      <Link href="/attendance/report" className="text-sm font-medium text-indigo-600 hover:underline">View Monthly Report</Link>
+                    <div className="mt-6 flex items-center gap-3">
+                      <Link href="/attendance" className="flex-1 text-center rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors shadow-sm">
+                        Mark Today
+                      </Link>
+                      <Link href="/attendance/report" className="flex-1 text-center rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+                        Monthly Report
+                      </Link>
                     </div>
                   </div>
                 )}
